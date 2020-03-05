@@ -1,0 +1,87 @@
+<html>
+    <body>
+        <b>input link here:</b>
+        <input type="text" id="in" value="">
+        <input type="submit" value="enter" id="enter">
+        <br><p id="error" style="color:red;"></p>
+        <b>result:</b>
+            <pre id='tree'></pre>
+    </body>
+    <script type="text/javascript">
+
+        // DNS Coffee URL
+        var base_url = "http://dns.coffee/api";
+        var cors_hack="https://cors-anywhere.herokuapp.com/";
+        var url;
+        // The namerserver we are examining
+        var domain;
+        // List of nameservers
+        let nameservers;
+        var output;
+
+        // Function to activate "enter" button
+        function submit() {
+            document.getElementById("enter").addEventListener('click', getDomain);
+        }
+
+        // Grabs inputted domain
+        function getDomain() {
+            document.getElementById("error").innerHTML = "";
+            domain = document.getElementById("in").value;
+            document.getElementById("in").value = "";
+            // This URL will allow us to get around the CORS restrictions
+            url = cors_hack+base_url+"/domains/"+domain;
+            // Calls function to build the tree
+            buildTree();
+        }
+        
+        function buildTree() { 
+            fetch(url)
+            // Converts the response into JSON
+            .then(response_json => response_json.json())
+            // Pulls out the IP address and sets the text in the pre
+            .then(response => {
+                var data = response.data;
+                // Assigns nameservers to list of nameservers
+                nameservers = data.nameservers;
+                output = data["name"];
+                // Prints out initial domain
+                var pre = document.getElementById("tree");
+                pre.innerHTML = output.toLowerCase();
+                // Call function to get IP addresses
+                getIP();
+                // Return error if domain/namespaces are not reached
+            }).catch(function() {document.getElementById("error").innerHTML = "error"});
+        }    
+
+        // Get IP addresses from each nameserver
+        function getIP() {
+            let promises = [];
+            // Add promises to array
+           nameservers.forEach(function(name){
+                url = cors_hack+base_url+"/nameservers/"+name["name"];
+                promises.push(url);
+            });
+            // Promise all while fetching urls in given array
+            Promise.all(promises.map(p=>fetch(p)))
+            .then( responses => {
+                responses.forEach(function parse(file){
+                    process(file.json())
+                    }
+                );
+            }).catch(err => {})
+        }
+
+        // Print results
+        let process = (prom) => {
+            prom.then(data=> {
+                // Print each entry 
+                let p = document.createElement('p');
+                p.textContent = "- " + data.data.name.toLowerCase() + "(" + data.data.ipv4[0]["name"] + ")";
+                document.getElementById('tree').appendChild(p);
+            })
+        }
+            
+        window.addEventListener('DOMContentLoaded', submit)    
+     </script>
+</html>
